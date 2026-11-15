@@ -60,8 +60,7 @@ return `<section class="panel"><h2>카테고리 관리</h2><p class="muted">상�
 ${area('주문서 강화','scroll_info',x.scroll_info,'주흔 30%, 놀긍 등')}
 <div class="option-section"><h3>잠재능력 (3줄)</h3>${optionRows('potential',potentialOptions,x.potential_lines,3)}</div><div class="option-section"><h3>에디셔널 (3줄)</h3>${optionRows('additional',potentialOptions,x.additional_lines,3)}</div>
 ${area('기타 옵션','extra_options',x.extra_options,'소울, 특수 강화 등')}${area('상품 설명','description',x.description)}<label>아이템 원본 스크린샷 (JPG/PNG/WEBP, 최대 5MB)<input name="image" type="file" accept="image/jpeg,image/png,image/webp"></label>${x.image_path?'<p class="muted">현재 이미지 유지됨. 새 이미지를 올리면 교체됩니다.</p>':''}<div class="actions"><button id="save" type="submit">${editId?'수정 저장':'아이템 등록'}</button>${editId?'<button id="cancel" type="button" class="ghost">수정 취소</button>':''}</div><p id="message" class="message"></p></form></section><section class="panel"><h2>아이템 관리 (${items.length})</h2>${items.map(i=>`<div class="manage-row"><div><strong>${esc(i.name)}</strong><small>${esc(i.category)} · ${esc(i.status)} · ${money(i.price)}</small></div><div><button class="ghost" data-edit="${esc(i.id)}">수정</button><button class="danger" data-delete="${esc(i.id)}">삭제</button></div></div>`).join('')||'<p>등록된 아이템이 없습니다.</p>'}</section><section class="panel"><h2>관리자 비밀번호 변경</h2><form id="passwordForm">${field('새 비밀번호','password','','password','required minlength="8" autocomplete="new-password"')}${field('새 비밀번호 확인','confirm','','password','required minlength="8" autocomplete="new-password"')}<button>비밀번호 변경</button><p class="message" id="passwordMessage"></p></form></section>`; }
-function render() {
- 
+
 function render() {
   const matches = items.filter(x =>
     `${x.name} ${x.description || ''} ${x.server || ''} ${x.potential_lines || ''}`
