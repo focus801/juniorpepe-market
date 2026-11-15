@@ -61,16 +61,134 @@ ${area('주문서 강화','scroll_info',x.scroll_info,'주흔 30%, 놀긍 등')}
 <div class="option-section"><h3>잠재능력 (3줄)</h3>${optionRows('potential',potentialOptions,x.potential_lines,3)}</div><div class="option-section"><h3>에디셔널 (3줄)</h3>${optionRows('additional',potentialOptions,x.additional_lines,3)}</div>
 ${area('기타 옵션','extra_options',x.extra_options,'소울, 특수 강화 등')}${area('상품 설명','description',x.description)}<label>아이템 원본 스크린샷 (JPG/PNG/WEBP, 최대 5MB)<input name="image" type="file" accept="image/jpeg,image/png,image/webp"></label>${x.image_path?'<p class="muted">현재 이미지 유지됨. 새 이미지를 올리면 교체됩니다.</p>':''}<div class="actions"><button id="save" type="submit">${editId?'수정 저장':'아이템 등록'}</button>${editId?'<button id="cancel" type="button" class="ghost">수정 취소</button>':''}</div><p id="message" class="message"></p></form></section><section class="panel"><h2>아이템 관리 (${items.length})</h2>${items.map(i=>`<div class="manage-row"><div><strong>${esc(i.name)}</strong><small>${esc(i.category)} · ${esc(i.status)} · ${money(i.price)}</small></div><div><button class="ghost" data-edit="${esc(i.id)}">수정</button><button class="danger" data-delete="${esc(i.id)}">삭제</button></div></div>`).join('')||'<p>등록된 아이템이 없습니다.</p>'}</section><section class="panel"><h2>관리자 비밀번호 변경</h2><form id="passwordForm">${field('새 비밀번호','password','','password','required minlength="8" autocomplete="new-password"')}${field('새 비밀번호 확인','confirm','','password','required minlength="8" autocomplete="new-password"')}<button>비밀번호 변경</button><p class="message" id="passwordMessage"></p></form></section>`; }
 function render() {
- const matches=items.filter(x=>`${x.name} ${x.description||''} ${x.server||''} ${x.potential_lines||''}`.toLowerCase().includes(search.toLowerCase()));
- const names=categories.map(c=>c.name);
- const orphans=matches.filter(x=>!names.includes(x.category));
- const nav=[{name:'전체',count:matches.length},...categories.map(c=>({name:c.name,count:matches.filter(x=>x.category===c.name).length}))];
- if(orphans.length)nav.push({name:'기타',count:orphans.length});
- if(selectedCategory!=='전체'&&!nav.some(c=>c.name===selectedCategory))selectedCategory='전체';
- const shown=selectedCategory==='전체'?matches:selectedCategory==='기타'?orphans:matches.filter(x=>x.category===selectedCategory);
- app.innerHTML=`<header><div class="wrap head"><a class="logo" href="/"><img src="/pepe-logo.png" alt="주니어페페" onerror="this.style.display='none'">주니어페페 <span>MARKET</span></a><div><button id="adminToggle" class="ghost">${adminView?'상점 보기':'관리자'}</button>${session?'<button id="logout" class="ghost">로그아웃</button>':''}</div></div></header><main class="wrap"><section class="hero"><div class="eyebrow">MAPLESTORY ITEM MARKET</div><h1>주니어페페 상점</h1><p>판매 아이템을 한눈에 확인하고 문의하세요. 결제는 홈페이지에서 진행하지 않습니다.</p></section>${adminView?adminPanel():`<div class="market-layout"><aside class="market-sidebar" aria-label="판매 카테고리"><h2>카테고리</h2><nav class="category-nav">${nav.map(c=>`<button type="button" class="category-nav-button ${selectedCategory===c.name?'active':''}" data-category="${esc(c.name)}" aria-pressed="${selectedCategory===c.name}"><span>${esc(c.name)}</span><small>${c.count}</small></button>`).join('')}</nav></aside><div class="market-content"><div class="toolbar"><input id="search" aria-label="아이템 검색" placeholder="아이템 이름, 서버, 옵션 검색" value="${esc(search)}"></div><div class="market-results-heading"><h2>${esc(selectedCategory)}</h2><span>${shown.length}개 아이템</span></div>${shown.length?`<div class="grid">${shown.map(card).join('')}</div>`:'<div class="market-empty">${search?'검색 조건에 맞는 아이템이 없습니다.':'등록된 아이템이 없습니다.'}</div>'}</div></div>`}</main><footer>주니어페페 상점 · 게임사와 무관한 개인 홍보 페이지</footer>`;
- bind();
+ 
+function render() {
+  const matches = items.filter(x =>
+    `${x.name} ${x.description || ''} ${x.server || ''} ${x.potential_lines || ''}`
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+
+  const names = categories.map(c => c.name);
+  const orphans = matches.filter(x => !names.includes(x.category));
+
+  const nav = [
+    { name: '전체', count: matches.length },
+    ...categories.map(c => ({
+      name: c.name,
+      count: matches.filter(x => x.category === c.name).length
+    }))
+  ];
+
+  if (orphans.length) {
+    nav.push({ name: '기타', count: orphans.length });
+  }
+
+  if (!nav.some(c => c.name === selectedCategory)) {
+    selectedCategory = '전체';
+  }
+
+  const shown = selectedCategory === '전체'
+    ? matches
+    : selectedCategory === '기타'
+      ? orphans
+      : matches.filter(x => x.category === selectedCategory);
+
+  const categoryButtons = nav.map(c => `
+    <button
+      type="button"
+      class="category-nav-button ${selectedCategory === c.name ? 'active' : ''}"
+      data-category="${esc(c.name)}"
+      aria-pressed="${selectedCategory === c.name}"
+    >
+      <span>${esc(c.name)}</span>
+      <small>${c.count}</small>
+    </button>
+  `).join('');
+
+  const productList = shown.length
+    ? `<div class="grid">${shown.map(card).join('')}</div>`
+    : `<div class="market-empty">${
+        search
+          ? '검색 조건에 맞는 아이템이 없습니다.'
+          : '등록된 아이템이 없습니다.'
+      }</div>`;
+
+  const marketView = `
+    <div class="market-layout">
+      <aside class="market-sidebar" aria-label="판매 카테고리">
+        <h2>카테고리</h2>
+        <nav class="category-nav">
+          ${categoryButtons}
+        </nav>
+      </aside>
+
+      <div class="market-content">
+        <div class="toolbar">
+          <input
+            id="search"
+            aria-label="아이템 검색"
+            placeholder="아이템 이름, 서버, 옵션 검색"
+            value="${esc(search)}"
+          >
+        </div>
+
+        <div class="market-results-heading">
+          <h2>${esc(selectedCategory)}</h2>
+          <span>${shown.length}개 아이템</span>
+        </div>
+
+        ${productList}
+      </div>
+    </div>
+  `;
+
+  const logoutButton = session
+    ? '<button id="logout" class="ghost">로그아웃</button>'
+    : '';
+
+  app.innerHTML = `
+    <header>
+      <div class="wrap head">
+        <a class="logo" href="/">
+          <img
+            src="/pepe-logo.png"
+            alt="주니어페페"
+            onerror="this.style.display='none'"
+          >
+          주니어페페 <span>MARKET</span>
+        </a>
+
+        <div>
+          <button id="adminToggle" class="ghost">
+            ${adminView ? '상점 보기' : '관리자'}
+          </button>
+          ${logoutButton}
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <section class="hero">
+        <div class="eyebrow">MAPLESTORY ITEM MARKET</div>
+        <h1>주니어페페 상점</h1>
+        <p>
+          판매 아이템을 한눈에 확인하고 문의하세요.
+          결제는 홈페이지에서 진행하지 않습니다.
+        </p>
+      </section>
+
+      ${adminView ? adminPanel() : marketView}
+    </main>
+
+    <footer>
+      주니어페페 상점 · 게임사와 무관한 개인 홍보 페이지
+    </footer>
+  `;
+
+  bind();
 }
+
 function collectOptions(form,kind) {return [...form.querySelectorAll(`[data-option-stat="${kind}"]`)].map(select=>{const i=select.dataset.index;const value=form.querySelector(`[data-option-value="${kind}"][data-index="${i}"]`).value.trim();const stat=select.value==='기타(직접 입력)'?form.querySelector(`[data-option-custom="${kind}"][data-index="${i}"]`).value.trim():select.value;return {stat,value};}).filter(x=>x.stat&&x.value).map(x=>`${x.stat} ${x.value}`).join('\n');}
 function bind() {document.querySelector('#adminToggle').onclick=()=>{adminView=!adminView;editId=null;render()};document.querySelector('#logout')?.addEventListener('click',()=>sb.auth.signOut());document.querySelectorAll('[data-category]').forEach(b=>b.addEventListener('click',()=>{selectedCategory=b.dataset.category;render()}));document.querySelectorAll('[name^="price_"]').forEach(el=>el.addEventListener('input',()=>{const out=document.querySelector('#pricePreview');if(!out)return;try{out.textContent=money(readPrice(document.querySelector('#itemForm')))}catch{out.textContent='입력값을 확인하세요'}}));document.querySelector('#search')?.addEventListener('input',e=>{search=e.target.value;const p=e.target.selectionStart;render();const el=document.querySelector('#search');el.focus();el.setSelectionRange(p,p)});document.querySelector('#login')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.target);const {error}=await sb.auth.signInWithPassword({email:f.get('email'),password:f.get('password')});if(error)document.querySelector('#message').textContent=error.message});document.querySelector('#itemForm')?.addEventListener('submit',saveItem);document.querySelector('#addCategory')?.addEventListener('submit',addCategory);document.querySelector('#passwordForm')?.addEventListener('submit',changePassword);document.querySelector('#cancel')?.addEventListener('click',()=>{editId=null;render()});document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editId=b.dataset.edit;render();window.scrollTo(0,0)});document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>removeItem(b.dataset.delete));document.querySelectorAll('[data-remove-cat]').forEach(b=>b.onclick=()=>removeCategory(b.dataset.removeCat));document.querySelectorAll('[data-image]').forEach(b=>b.onclick=()=>openImage(b.dataset.image));document.querySelectorAll('[data-option-stat]').forEach(el=>el.addEventListener('change',()=>{const custom=document.querySelector(`[data-option-custom="${el.dataset.optionStat}"][data-index="${el.dataset.index}"]`);custom.hidden=el.value!=='기타(직접 입력)'}));const gearSet=document.querySelector('#gearSet'),gearItem=document.querySelector('#gearItem');gearSet?.addEventListener('change',()=>{const list=sets[gearSet.value]||[];gearItem.innerHTML='<option value="">직접 입력 또는 장비 선택</option>'+opts(list,'')});gearItem?.addEventListener('change',()=>{if(gearItem.value)document.querySelector('[name="name"]').value=gearItem.value});}
 function openImage(path) {if(!path)return;const overlay=document.createElement('div');overlay.className='modal';overlay.innerHTML=`<div class="modal-content"><button class="ghost" type="button">닫기 ✕</button><img src="${esc(publicImage(path))}" alt="아이템 원본 이미지"></div>`;overlay.querySelector('button').onclick=()=>overlay.remove();overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};document.body.append(overlay);}
