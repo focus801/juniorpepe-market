@@ -200,6 +200,7 @@ if (selectedFile) {
 }
 
 render();
+                       }
 async function checkAdmin() {const {data,error}=await sb.rpc('is_admin');admin=!error&&data===true;}
 async function addCategory(e) {e.preventDefault();if(!admin)return;const name=String(new FormData(e.target).get('name')).trim();if(!name)return;const {error}=await sb.from('market_categories').insert({name,sort_order:categories.length*10+10});if(error)document.querySelector('#categoryMessage').textContent=error.message;else await load();}
 async function removeCategory(id) {if(!admin)return;const c=categories.find(x=>String(x.id)===String(id));if(!c)return;if(items.some(x=>x.category===c.name)){alert('이 카테고리에 등록된 아이템이 있어 삭제할 수 없습니다.');return}if(!confirm(`${c.name} 카테고리를 삭제할까요?`))return;const {error}=await sb.from('market_categories').delete().eq('id',id);if(error)alert(error.message);else await load();}
