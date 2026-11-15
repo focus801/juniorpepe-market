@@ -8,8 +8,71 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const cats=['전체','무기','방어구','장신구','기타'];const states=['판매 중','예약 중','판매 완료'];
 const money=n=>Number(n).toLocaleString('ko-KR')+' 메소';
 function card(x){return `<article class="item"><div class="photo">${x.image_path?`<img loading="lazy" src="${esc(sb.storage.from('item-images').getPublicUrl(x.image_path).data.publicUrl)}" alt="${esc(x.name)}">`:'<span>이미지 준비 중</span>'}</div><div class="detail"><div class="meta">${esc(x.server||'서버 미설정')} · ${esc(x.category)}</div><h3>${esc(x.name)}</h3><div class="price">${x.price===null?'가격 문의':money(x.price)}</div><span class="status ${x.status==='판매 중'?'on':''}">${esc(x.status)}</span>${x.description?`<p class="desc">${esc(x.description)}</p>`:''}${x.status==='판매 중'&&x.contact_url?`<a class="contact" href="${esc(x.contact_url)}" target="_blank" rel="noopener noreferrer">거래 문의</a>`:''}</div></article>`}
-function adminPanel(){if(!session)return `<section class="panel"><h2>관리자 로그인</h2><p>Supabase에 등록된 관리자 계정으로 로그인하세요.</p><form id="login"><label>이메일<input type="email" name="email" required autocomplete="username"></label><label>비밀번호<input type="password" name="password" required autocomplete="current-password"></label><button>로그인</button></form><p id="message" class="message"></p></section>`;if(!admin)return `<section class="panel"><h2>접근 권한 없음</h2><p>로그인한 계정은 관리자 권한이 없습니다. 관리자 테이블 등록 여부를 확인하세요.</p></section>`;const editing=items.find(x=>x.id===editId);return `<section class="panel"><h2>${editing?'아이템 수정':'새 아이템 등록'}</h2><form id="itemForm"><div class="fields"><label>아이템 이름<input name="name" maxlength="100" required value="${esc(editing?.name||'')}"></label><label>서버<input name="server" maxlength="50" placeholder="예: 루나" value="${esc(editing?.server||'')}"></label><label>카테고리<select name="category">${cats.slice(1).map(c=>`<option ${editing?.category===c?'selected':''}>${c}</option>`).join('')}</select></label><label>가격 (메소, 비우면 가격 문의)<input name="price" type="number" min="0" step="1" value="${editing?.price??''}"></label><label>판매 상태<select name="status">${states.map(s=>`<option ${editing?.status===s?'selected':''}>${s}</option>`).join('')}</select></label><label>문의 링크 (https://)<input name="contact_url" type="url" placeholder="https://open.kakao.com/..." value="${esc(editing?.contact_url||'')}"></label></div><label>설명<textarea name="description" maxlength="2000" rows="3">${esc(editing?.description||'')}</textarea></label><label>아이템 이미지 (JPG, PNG, WEBP / 최대 5MB)<input name="image" type="file" accept="image/jpeg,image/png,image/webp"></label><div class="actions"><button type="submit" id="save">${editing?'수정 저장':'아이템 등록'}</button>${editing?'<button type="button" id="cancel" class="ghost">취소</button>':''}</div><p id="message" class="message"></p></form></section><section class="panel"><h2>아이템 관리 (${items.length})</h2><div class="manage">${items.map(x=>`<div class="manage-row"><div><strong>${esc(x.name)}</strong><small>${esc(x.status)} · ${x.price===null?'가격 문의':money(x.price)}</small></div><div><button class="ghost" data-edit="${x.id}">수정</button><button class="danger" data-delete="${x.id}">삭제</button></div></div>`).join('')||'등록된 아이템이 없습니다.'}</div></section>`}
-function bind(){document.querySelector('#adminToggle').onclick=()=>{adminView=!adminView;editId=null;render()};document.querySelector('#logout')?.addEventListener('click',async()=>{await sb.auth.signOut()});document.querySelector('#search')?.addEventListener('input',e=>{search=e.target.value;const pos=e.target.selectionStart;render();const el=document.querySelector('#search');el.focus();el.setSelectionRange(pos,pos)});document.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{category=b.dataset.cat;render()});document.querySelector('#login')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.target);const {error}=await sb.auth.signInWithPassword({email:f.get('email'),password:f.get('password')});document.querySelector('#message').textContent=error?.message||''});document.querySelector('#itemForm')?.addEventListener('submit',saveItem);document.querySelector('#cancel')?.addEventListener('click',()=>{editId=null;render()});document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editId=b.dataset.edit;render();window.scrollTo(0,0)});document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>removeItem(b.dataset.delete));}
+
+function passwordPanel(){
+  return `<section class="panel">
+    <h2>관리자 비밀번호 변경</h2>
+    <p>새로운 비밀번호를 입력하세요.</p>
+    <form id="passwordForm">
+      <label>새 비밀번호
+        <input type="password" name="newPassword"
+          minlength="8" required autocomplete="new-password">
+      </label>
+      <label>새 비밀번호 확인
+        <input type="password" name="confirmPassword"
+          minlength="8" required autocomplete="new-password">
+      </label>
+      <button type="submit">비밀번호 변경</button>
+      <p id="passwordMessage" class="message" role="status"></p>
+    </form>
+  </section>`;
+}
+
+function adminPanel(){if(!session)return `<section class="panel"><h2>관리자 로그인</h2><p>Supabase에 등록된 관리자 계정으로 로그인하세요.</p><form id="login"><label>이메일<input type="email" name="email" required autocomplete="username"></label><label>비밀번호<input type="password" name="password" required autocomplete="current-password"></label><button>로그인</button></form><p id="message" class="message"></p></section>`;if(!admin)return `<section class="panel"><h2>접근 권한 없음</h2><p>로그인한 계정은 관리자 권한이 없습니다. 관리자 테이블 등록 여부를 확인하세요.</p></section>`;const editing=items.find(x=>x.id===editId);return `<section class="panel"><h2>${editing?'아이템 수정':'새 아이템 등록'}</h2><form id="itemForm"><div class="fields"><label>아이템 이름<input name="name" maxlength="100" required value="${esc(editing?.name||'')}"></label><label>서버<input name="server" maxlength="50" placeholder="예: 루나" value="${esc(editing?.server||'')}"></label><label>카테고리<select name="category">${cats.slice(1).map(c=>`<option ${editing?.category===c?'selected':''}>${c}</option>`).join('')}</select></label><label>가격 (메소, 비우면 가격 문의)<input name="price" type="number" min="0" step="1" value="${editing?.price??''}"></label><label>판매 상태<select name="status">${states.map(s=>`<option ${editing?.status===s?'selected':''}>${s}</option>`).join('')}</select></label><label>문의 링크 (https://)<input name="contact_url" type="url" placeholder="https://open.kakao.com/..." value="${esc(editing?.contact_url||'')}"></label></div><label>설명<textarea name="description" maxlength="2000" rows="3">${esc(editing?.description||'')}</textarea></label><label>아이템 이미지 (JPG, PNG, WEBP / 최대 5MB)<input name="image" type="file" accept="image/jpeg,image/png,image/webp"></label><div class="actions"><button type="submit" id="save">${editing?'수정 저장':'아이템 등록'}</button>${editing?'<button type="button" id="cancel" class="ghost">취소</button>':''}</div><p id="message" class="message"></p></form></section><section class="panel"><h2>아이템 관리 (${items.length})</h2><div class="manage">${items.map(x=>`<div class="manage-row"><div><strong>${esc(x.name)}</strong><small>${esc(x.status)} · ${x.price===null?'가격 문의':money(x.price)}</small></div><div><button class="ghost" data-edit="${x.id}">수정</button><button class="danger" data-delete="${x.id}">삭제</button></div></div>`).join('')||'등록된 아이템이 없습니다.'}</div></section>${passwordPanel()}`}
+function bind(){document.querySelector('#adminToggle').onclick=()=>{adminView=!adminView;editId=null;render()};document.querySelector('#logout')?.addEventListener('click',async()=>{await sb.auth.signOut()});document.querySelector('#search')?.addEventListener('input',e=>{search=e.target.value;const pos=e.target.selectionStart;render();const el=document.querySelector('#search');el.focus();el.setSelectionRange(pos,pos)});document.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{category=b.dataset.cat;render()});document.querySelector('#login')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.target);const {error}=await sb.auth.signInWithPassword({email:f.get('email'),password:f.get('password')});document.querySelector('#message').textContent=error?.message||''});document.querySelector('#itemForm')?.addEventListener('submit',saveItem);document.querySelector('#passwordForm')?.addEventListener('submit',changePassword);document.querySelector('#cancel')?.addEventListener('click',()=>{editId=null;render()});document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editId=b.dataset.edit;render();window.scrollTo(0,0)});document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>removeItem(b.dataset.delete));}
+
+async function changePassword(e){
+  e.preventDefault();
+
+  if(!session || !admin) return;
+
+  const form=e.target;
+  const msg=document.querySelector('#passwordMessage');
+  const btn=form.querySelector('button[type="submit"]');
+  const f=new FormData(form);
+
+  const password=String(f.get('newPassword'));
+  const confirmPassword=String(f.get('confirmPassword'));
+
+  if(password.length<8){
+    msg.textContent='비밀번호는 8자 이상이어야 합니다.';
+    return;
+  }
+
+  if(password!==confirmPassword){
+    msg.textContent='비밀번호가 일치하지 않습니다.';
+    return;
+  }
+
+  btn.disabled=true;
+  msg.textContent='비밀번호 변경 중...';
+
+  try{
+    const {error}=await sb.auth.updateUser({
+      password:password
+    });
+
+    if(error) throw error;
+
+    form.reset();
+    msg.textContent='비밀번호가 변경되었습니다.';
+  }catch(err){
+    msg.textContent='변경 실패: '+err.message;
+  }finally{
+    btn.disabled=false;
+  }
+}
+
 let adminView=false;
 // Admin display mode is separate from verified permission.
 function render(){const filtered=items.filter(x=>(category==='전체'||x.category===category)&&`${x.name} ${x.description||''} ${x.server||''}`.toLowerCase().includes(search.toLowerCase()));app.innerHTML=`<header><div class="wrap head"><a class="logo" href="#">🐧 주니어페페 <span>MARKET</span></a><div><button id="adminToggle" class="ghost">${adminView?'상점 보기':'관리자'}</button>${session?'<button id="logout" class="ghost">로그아웃</button>':''}</div></div></header><main class="wrap"><section class="hero"><div class="eyebrow">MAPLESTORY ITEM MARKET</div><h1>주니어페페 상점</h1><p>판매 아이템을 한눈에 확인하고 문의하세요. 결제는 홈페이지에서 진행하지 않습니다.</p></section>${adminView?adminPanel():`<section class="toolbar"><input id="search" placeholder="아이템 이름, 서버 검색" value="${esc(search)}"/><div class="tabs">${cats.map(c=>`<button class="tab ${category===c?'active':''}" data-cat="${c}">${c}</button>`).join('')}</div></section><div class="count">총 ${filtered.length}개 아이템</div><section class="grid">${filtered.length?filtered.map(card).join(''):'<div class="empty">등록된 아이템이 없습니다.</div>'}</section>`}</main><footer>주니어페페 상점 · 게임사와 무관한 개인 홍보 페이지</footer>`;bind();}
